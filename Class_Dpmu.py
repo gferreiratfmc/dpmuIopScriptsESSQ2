@@ -276,6 +276,17 @@ class Dpmu:
         except Exception as e:
             return f"Exception GetOutputPower {e}"
         
+    def GetSwitchesState(self):
+        switchList=[]
+        try:
+            switchList.append(["QSB", self.node.sdo["Switch_State"]["SW_Qsb_State"].raw])
+            switchList.append(["QLB", self.node.sdo["Switch_State"]["SW_Qlb_State"].raw])
+            switchList.append(["QINB", self.node.sdo["Switch_State"]["SW_Qinb_State"].raw])
+            switchList.append(["Qinrush", self.node.sdo["Switch_State"]["SW_Qinrush_State"].raw])
+        except Exception as e:
+            pass
+        return switchList
+        
 if __name__ == "__main__":
     print(">> REM >> This is a class file, execution could be performed, but no effect for FAT")
     sys.exit(0)

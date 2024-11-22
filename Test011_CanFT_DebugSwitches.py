@@ -23,11 +23,13 @@ def logVars():
     dpmuBusVoltage = dpmu.GetOutputVoltage()
     supercapVoltage = dpmu.GetSupercapBankVoltage()
     dpmuState = dpmu.getState()
+    switches=dpmu.GetSwitchesState()
     print(f"******** DPMU VARS {ts} ********")
     print(f"\tState:[{dpmuState}]")
     print(f"\tOutputCurrent:[{outputCurrent}]")
     print(f"\tBusVoltage:[{dpmuBusVoltage}]")
     print(f"\tSupercapVoltage:[{supercapVoltage}]")
+    print(f"\t{switches}")
     print("******** DPMU VARS END ********")
     
 if __name__ == "__main__":
