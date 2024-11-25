@@ -22,16 +22,24 @@ def logVars():
     outputCurrent = dpmu.GetOutputCurrent()
     dpmuBusVoltage = dpmu.GetOutputVoltage()
     supercapVoltage = dpmu.GetSupercapBankVoltage()
+    inputPower = dpmu.GetInputPower() 
+    inputCurrent = float(inputPower) / dpmuBusVoltage
     dpmuState = dpmu.getState()
     switches=dpmu.GetSwitchesState()
-    print(f"******** DPMU VARS {ts} ********")
+    print(f"\r\n******** DPMU VARS {ts} ********")
     print(f"\tState:[{dpmuState}]")
     print(f"\tOutputCurrent:[{outputCurrent}]")
     print(f"\tBusVoltage:[{dpmuBusVoltage}]")
     print(f"\tSupercapVoltage:[{supercapVoltage}]")
+    print(f"\tInputCurrent:[{inputCurrent}], InputPower:[{inputPower}]")
     print(f"\t{switches}")
-    print("******** DPMU VARS END ********")
+    print("******** DPMU VARS END ********\r\n")
     
+def ReadCmdLineSequence():
+    if( len(sys.argv) < 1 ):
+        pass
+
+
 if __name__ == "__main__":
     script_path = os.path.abspath(__file__)    
     script_directory = os.path.dirname(script_path)        
@@ -41,16 +49,36 @@ if __name__ == "__main__":
     can_interface = "can11" #FT1
 
     CanOpenMaster = canopen.Network()
-    #CanOpenMaster.connect(bustype='socketcan', channel=can_interface, bitrate=125000)
-    can_interface = 0
-    CanOpenMaster.connect(bustype='kvaser', channel=can_interface, bitrate=125000)
-    CanOpenMaster.check()
+    
+    pc_can_number = "0"
+    iop_can_interface_number1 = "can11" #FT1
+    iop_can_interface_number2 = "can12" #FT2
+
+    for canInfo in [['kvaser', pc_can_number], ['socketcan', iop_can_interface_number2]]:
+        try:
+            canInterfaceFound="None"
+            busDriver=canInfo[0]
+            can_interface = canInfo[1]    
+            print(f"Try to connect to CAN bus driver {busDriver} fnterface:{can_interface}")
+            CanOpenMaster.connect(bustype=busDriver, channel=can_interface, bitrate=125000)
+            CanOpenMaster.check()
+            canInterfaceFound=busDriver
+            print(f"CAN bus driver {busDriver} found!")
+            break
+        except Exception as ex:
+            print(f"Could not find {busDriver} driver. Excepiton {ex}")
+
+    if( canInterfaceFound=="None" ):
+            print(f"Could not find any can bus driver exiting script.")
+            sys.exit(-1)
+
     dpmu = Class_Dpmu.Dpmu(CanOpenMaster, 125, script_directory+"/EDS_DPMU_001.eds")
 
     dateTimeNow = dt.datetime.now()
     root_file_name = "DPMU_CAN_LOG_" + dateTimeNow.strftime("%Y%m%d_%H%M%S") 
     dpmu_log_hex_file_name = root_file_name + ".hex"
 
+    listOfStatesSequence = ReadCmdLineSequence()
 
     dpmu.getState()
     prState = "InitSM"
@@ -95,12 +123,12 @@ if __name__ == "__main__":
             case _:
                 nxState = "InitSM"
     
-        time.sleep(0.2)
+        time.sleep(0.5)
         if( prState != nxState ):
             print(f"========= prState[{prState}] => nxState[{nxState}]")
         prState = nxState
 
-
+    print("====== DPMU internal log download")
     dpmu.CanLogTransfer( dpmu_log_hex_file_name )
 
     

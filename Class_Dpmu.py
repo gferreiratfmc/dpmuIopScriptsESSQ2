@@ -254,12 +254,6 @@ class Dpmu:
         except Exception as e:
             return f"Exception GetOutputVoltage {e}"
 
-    def GetOutputVoltage(self):
-        try:
-            return self.node.sdo["Read_Power"]["Read_Voltage_At_DC_Bus"].raw
-        except Exception as e:
-            return f"Exception GetOutputVoltage {e}"        
-
     def GetOutputCurrent(self):
         try:
             count = self.node.sdo["Read_Power"]["Read_Load_Current"].raw
@@ -268,7 +262,14 @@ class Dpmu:
             loadCurrent = float(count) / 16.0        
             return loadCurrent
         except Exception as e:
-            return f"Exception GetOutputCurrent {e}"   
+            return f"Exception GetOutputCurrent {e}" 
+        
+    def GetInputPower(self):
+        try:
+            return  self.node.sdo["Read_Power"]["Power_From_DC_Input"].raw      
+        except Exception as e:
+            return f"Exception GetInputPower {e}" 
+
         
     def GetOutputPower(self):
         try:
