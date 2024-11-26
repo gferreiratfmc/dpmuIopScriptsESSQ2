@@ -77,6 +77,7 @@ class Dpmu:
 
     node = None
     network = None
+    initialized = False
     
     def __init__(self,canMaster,canId, edsFile):
         try:
@@ -87,10 +88,12 @@ class Dpmu:
             #self.node = canopen.Node(canMaster, canId, edsFile)
             self.node.sdo["Consumer Heartbeat Time"]["Consumer Heartbeat Time"].raw=0
             self.node.sdo["Producer Heartbeat Time"].raw=0
+            self.initialized = False
             self.InitialConfig()
+            self.initialized = True
         except Exception as e:
             print(f">> REM >> Exception creating DPMU instance {e}")
-    
+        
     def InitialConfig(self):
         try:
             node = self.node

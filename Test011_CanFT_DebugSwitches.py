@@ -23,7 +23,8 @@ def logVars():
     dpmuBusVoltage = dpmu.GetOutputVoltage()
     supercapVoltage = dpmu.GetSupercapBankVoltage()
     inputPower = dpmu.GetInputPower() 
-    inputCurrent = float(inputPower) / dpmuBusVoltage
+    #inputCurrent = float(inputPower) / dpmuBusVoltage
+    inputCurrent = float(inputPower)
     dpmuState = dpmu.getState()
     switches=dpmu.GetSwitchesState()
     print(f"\r\n******** DPMU VARS {ts} ********")
@@ -61,22 +62,27 @@ if __name__ == "__main__":
             can_interface = canInfo[1]    
             print(f"Try to connect to CAN bus driver {busDriver} fnterface:{can_interface}")
             CanOpenMaster.connect(bustype=busDriver, channel=can_interface, bitrate=125000)
+            #CanOpenMaster.connect(bustype=busDriver, channel=can_interface, bitrate=250000)
             CanOpenMaster.check()
             canInterfaceFound=busDriver
             print(f"CAN bus driver {busDriver} found!")
             break
         except Exception as ex:
             print(f"Could not find {busDriver} driver. Excepiton {ex}")
-
+    # CanOpenMaster.connect(bustype='socketcan', channel='can12', bitrate=125000)
+    # CanOpenMaster.check()
+    # canInterfaceFound = "socketcan"
     if( canInterfaceFound=="None" ):
             print(f"Could not find any can bus driver exiting script.")
             sys.exit(-1)
-
-    dpmu = Class_Dpmu.Dpmu(CanOpenMaster, 125, script_directory+"/EDS_DPMU_001.eds")
-
-    dateTimeNow = dt.datetime.now()
-    root_file_name = "DPMU_CAN_LOG_" + dateTimeNow.strftime("%Y%m%d_%H%M%S") 
-    dpmu_log_hex_file_name = root_file_name + ".hex"
+    
+    for i in range(0, 10000):
+        print(f"Trying init DPMU Class:[{i}]")
+        dpmu = Class_Dpmu.Dpmu(CanOpenMaster, 125, script_directory+"/EDS_DPMU_001.eds")
+        print(f"dpmu.initialized={dpmu.initialized}")
+        if( dpmu.initialized == True):
+            break
+        time.sleep(0.1)
 
     listOfStatesSequence = ReadCmdLineSequence()
 
@@ -129,11 +135,9 @@ if __name__ == "__main__":
         prState = nxState
 
     print("====== DPMU internal log download")
+    dateTimeNow = dt.datetime.now()
+    root_file_name = "DPMU_CAN_LOG_" + dateTimeNow.strftime("%Y%m%d_%H%M%S") 
+    dpmu_log_hex_file_name = root_file_name + ".hex"
     dpmu.CanLogTransfer( dpmu_log_hex_file_name )
-
-    
-    # time.sleep(2)    
-    
-    # dpmu.ResetFlashCanLog()
 
     sys.exit()
