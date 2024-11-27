@@ -88,7 +88,6 @@ class Dpmu:
             #self.node = canopen.Node(canMaster, canId, edsFile)
             self.node.sdo["Consumer Heartbeat Time"]["Consumer Heartbeat Time"].raw=0
             self.node.sdo["Producer Heartbeat Time"].raw=0
-            self.initialized = False
             self.InitialConfig()
             self.initialized = True
         except Exception as e:

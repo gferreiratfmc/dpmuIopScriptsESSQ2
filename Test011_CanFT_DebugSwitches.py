@@ -15,6 +15,7 @@ import canopen
 import Class_Dpmu
 import datetime as dt
 
+possibleCommands = ["init", "initialize","idle","fault","charge","reg","regulate", "end"]
 
 def logVars():
     dateTimeNow = dt.datetime.now()
@@ -27,18 +28,70 @@ def logVars():
     inputCurrent = float(inputPower)
     dpmuState = dpmu.getState()
     switches=dpmu.GetSwitchesState()
-    print(f"\r\n******** DPMU VARS {ts} ********")
+    print(f"******** DPMU VARS {ts} ********")
     print(f"\tState:[{dpmuState}]")
     print(f"\tOutputCurrent:[{outputCurrent}]")
     print(f"\tBusVoltage:[{dpmuBusVoltage}]")
     print(f"\tSupercapVoltage:[{supercapVoltage}]")
     print(f"\tInputCurrent:[{inputCurrent}], InputPower:[{inputPower}]")
     print(f"\t{switches}")
-    print("******** DPMU VARS END ********\r\n")
+    print("******** DPMU VARS END ********")
     
 def ReadCmdLineSequence():
-    if( len(sys.argv) < 1 ):
-        pass
+    print(f"Received args:[{sys.argv}]")
+    nrOfargs = len(sys.argv)
+    if( nrOfargs < 2 ):
+        return ["end", 0]
+    else:
+        commandList=list()
+        argList = sys.argv[1:]
+        idx=0
+        while ( idx < len(argList) ):
+            command = argList[idx]
+            print(f"Validating arg[{idx}]:{command}")
+            if( command in possibleCommands ):
+                match command:
+                    case "init" | "initialize"  | "fault" | "end":
+                        commandList.append([command, 0])
+                    case "charge" | "reg" | "regulate" | "idle":
+                        if( (idx+1) < len(argList) ):
+                            idx = idx + 1
+                            try: 
+                                print(f"Convert {argList[idx]} to int")
+                                timeCommand = int( argList[idx] )
+                                commandList.append( [command, timeCommand] )
+                            except Exception as e:
+                                print(f"Erro converting {argList[idx]} to integer. {e}")
+                                commandList.append( [command, 0] )
+                                continue
+                    case _:
+                        print(f"Argument[{idx}] = {command} invalid")
+            idx = idx + 1
+        commandList.append(["end", 0])
+        return commandList
+
+def abend():
+    print(f"Command {command} not valid. Aborting.\r\nValid commands are")
+    print("init | initialize  | fault | end | charge [time] | reg [time] | regulate [time] | idle [time]")
+    sys.exit(0)
+
+def selectStateFromCommand(command):
+    commandStr=str(command)
+    match commandStr.lower():
+        case "init" | "initialize":
+            return "Initialize"
+        case "idle":
+            return "Idle"
+        case "fault":
+            return "Fault"        
+        case "charge":
+            return "TrickleChargeInit"
+        case "reg" | "regulate":
+            return "RegulateInit"
+        case "end":
+            return "EndSM"
+        case _:
+            return "EndSM"
 
 
 if __name__ == "__main__":
@@ -76,68 +129,115 @@ if __name__ == "__main__":
             print(f"Could not find any can bus driver exiting script.")
             sys.exit(-1)
     
-    for i in range(0, 10000):
+    for i in range(0, 10):
         print(f"Trying init DPMU Class:[{i}]")
         dpmu = Class_Dpmu.Dpmu(CanOpenMaster, 125, script_directory+"/EDS_DPMU_001.eds")
         print(f"dpmu.initialized={dpmu.initialized}")
         if( dpmu.initialized == True):
             break
-        time.sleep(0.1)
 
-    listOfStatesSequence = ReadCmdLineSequence()
 
     dpmu.getState()
     prState = "InitSM"
     nxState = "InitSM"
     endProcess = False
+    listOfCommands = ReadCmdLineSequence()
+    print(f"listOfCommands:\r\n{listOfCommands}")
+    commandIndex = 0
+
     while( endProcess == False ):
         
         dpmu_state = dpmu.getState()
-        logVars()
+        
         match prState:
             case "InitSM":
                 dpmu.printVariables()
-                dpmu.setState("Fault")
-                nxState = "WaitDPMUPreInitialized"
-                    
-            case "WaitDPMUPreInitialized":
-                if( dpmu_state == "PreInitialized" ):
-                    dpmu.InitialConfig()
-                    dpmu.setState("Initialize")
-                    countTime = 0
-                    nxState = "PrintDPMUVars"
-            
-            case "PrintDPMUVars":
-                if( countTime < 5): 
-                    countTime = countTime + 1
-                else:
-                    countTime=0
-                    if( dpmu_state == "Idle" or dpmu_state == "PreInitialized"):                   
-                        nxState="ForceFault"
-            
+                nxState = "ForceFault"
+                
             case "ForceFault":
                 dpmu.setState("Fault")
-                nxState="EndSM"
-                countTime=0
+                countTime=2 
+                expectedDPMUStateList=["Idle", "PreInitialized"]            
+                nxStateAfterWaitDPMUState="ProcessCommandLine"
+                nxState="WaitDPMUState"
+
+            case "ProcessCommandLine":
+                if( commandIndex < len(listOfCommands) ): 
+                    command = listOfCommands[commandIndex][0]
+                    commandTime = listOfCommands[commandIndex][1]
+                    commandIndex = commandIndex + 1
+                    nxState = selectStateFromCommand( command )
+                else:
+                    nxState = "EndSM"
+                print(f"========== ProcessCommandLine ===========")
+                print(f"\t\tcommandindex:[{commandIndex}] len(listOfCommands){len(listOfCommands)}")
+                print(f"\t\tcommand:[{command}] commandTime:{commandTime}")
+                print(f"\t\tnxState:[{nxState}]")
+                
+            case "Initialize":
+                dpmu.setState( "Initialize")
+                countTime = 30
+                expectedDPMUStateList=["Idle", "PreInitialized"]            
+                nxStateAfterWaitDPMUState="ProcessCommandLine"
+                nxState="WaitDPMUState"
+
+            case "Charge":
+                dpmu.setState("TrickleChargeInit")
+                countTime = commandTime * 10
+                if( commandTime > 0):
+                    expectedDPMUStateList=["Charge"]
+                else:
+                    expectedDPMUStateList=["Idle", "PreInitialized"]
+                nxStateAfterWaitDPMUState="ProcessCommandLine"
+                nxState="WaitDPMUState"
+
+            case "Regulate":
+                dpmu.setState("RegulateInit")
+                countTime = commandTime * 10
+                if( commandTime > 0):
+                    expectedDPMUStateList=["Regulate", "RegulateVoltage"]
+                else:
+                    expectedDPMUStateList=["Idle", "PreInitialized"]
+                nxStateAfterWaitDPMUState="ProcessCommandLine"
+                nxState="WaitDPMUState"
+
+
+            case "Idle":
+                dpmu.setState("Idle")
+                countTime = commandTime * 10
+                expectedDPMUStateList=["Idle", "PreInitialized"]
+                nxStateAfterWaitDPMUState="ProcessCommandLine"
+                nxState="WaitDPMUState"
+
 
             case "EndSM":
-                if( countTime < 5):
-                    countTime = countTime + 1
+                if( countTime > 0):
+                    countTime = countTime - 1
                 else:
                     dpmu.printVariables()
                     endProcess = True
+            
+            case "WaitDPMUState":
+                if( countTime > 0): 
+                    countTime = countTime - 1
+                else:
+                    if( dpmu_state in expectedDPMUStateList ):                   
+                        nxState=nxStateAfterWaitDPMUState
+    
             case _:
                 nxState = "InitSM"
     
-        time.sleep(0.5)
+        time.sleep(0.1)
         if( prState != nxState ):
-            print(f"========= prState[{prState}] => nxState[{nxState}]")
+            print(f"========= present state[{prState}]")
+            logVars()
+            print(f"========= next state[{nxState}]\r\n")
         prState = nxState
 
     print("====== DPMU internal log download")
     dateTimeNow = dt.datetime.now()
     root_file_name = "DPMU_CAN_LOG_" + dateTimeNow.strftime("%Y%m%d_%H%M%S") 
     dpmu_log_hex_file_name = root_file_name + ".hex"
-    dpmu.CanLogTransfer( dpmu_log_hex_file_name )
+    #dpmu.CanLogTransfer( dpmu_log_hex_file_name )
 
     sys.exit()
