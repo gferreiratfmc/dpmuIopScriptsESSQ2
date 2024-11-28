@@ -230,6 +230,8 @@ if __name__ == "__main__":
 
             case "ResetFlash":
                 dpmu.ResetFlashCanLog()
+                print("Stop state machine for wait 8 seconds")
+                time.sleep(8)
                 countTime = commandTime * 10
                 expectedDPMUStateList=["Idle", "PreInitialized"]
                 nxStateAfterWaitDPMUState="ProcessCommandLine"
