@@ -98,31 +98,54 @@ class Dpmu:
             node = self.node
             print(">> REM >> DPMU - Seting Initial Configuration variables")     
             node.sdo["Date_And_Time"].raw=int( time.time() ) #0x66576fae
+            time.sleep(0.05)
             node.sdo["DPMU_Power_Source_Type"].raw=0 #set default mode
+            time.sleep(0.05)
             node.sdo["Power_Budget_DC_Input"]["Available_Power_Budget_DC_Input"].raw=300
+            time.sleep(0.05)
             node.sdo["Maximum_Allowed_Load_Power"].raw=1000
+            time.sleep(0.05)
             node.sdo["ESS_Current"].raw=0x20
+            time.sleep(0.05)
             node.sdo["Energy_Cell_Summary"]["Max_Voltage_Energy_Cell"].raw=0x30
+            time.sleep(0.05)
             node.sdo["Energy_Cell_Summary"]["Min_Voltage_Energy_Cell"].raw=0x10        
+            time.sleep(0.05)
             node.sdo["Energy_Bank_Summary"]["Max_Voltage_Applied_To_Energy_Bank"].raw=88
+            time.sleep(0.05)
             node.sdo["Energy_Bank_Summary"]["Constant Voltage Threshold"].raw=90
+            time.sleep(0.05)
             node.sdo["Energy_Bank_Summary"]["Min_Voltage_Applied_To_Energy_Bank"].raw=60
+            time.sleep(0.05)
             node.sdo["Energy_Bank_Summary"]["Preconditional Threshold"].raw=30
+            time.sleep(0.05)
             node.sdo["Energy_Bank_Summary"]["Safety_Threshold_State_of_Charge"].raw=30
+            time.sleep(0.05)
             node.sdo["DC_Bus_Voltage"]["Max_Allowed_DC_Bus_Voltage"].raw=193
-            node.sdo["DC_Bus_Voltage"]["Target_Voltage_At_DC_Bus"].raw=180
-            node.sdo["DC_Bus_Voltage"]["Min_Allowed_DC_Bus_Voltage"].raw=167
+            time.sleep(0.05)
+            #node.sdo["DC_Bus_Voltage"]["Target_Voltage_At_DC_Bus"].raw=180
+            node.sdo["DC_Bus_Voltage"]["Target_Voltage_At_DC_Bus"].raw=1
+            time.sleep(0.05)
+            #node.sdo["DC_Bus_Voltage"]["Min_Allowed_DC_Bus_Voltage"].raw=167
+            node.sdo["DC_Bus_Voltage"]["Min_Allowed_DC_Bus_Voltage"].raw=0
+            time.sleep(0.05)
             node.sdo["DC_Bus_Voltage"]["VDC_Bus_Short_Circuit_Limit"].raw=30      
+            time.sleep(0.05)
             node.sdo["Temperature"]["DPMU_Temperature_Max_Limit"].raw=85
+            time.sleep(0.05)
             node.sdo["Temperature"]["DPMU_Temperature_High_Limit"].raw=70
+            time.sleep(0.05)
             #self.printVariables()            
         except Exception as e:
             return f">> REM >> Exception Initial Configuration {e}"   
         
-    # def ResetFlashCanLog(self):
-    #     node.sdo["CAN_LOG"]["CAN_LOG_RESET"].raw=1
-    #     print("Reseting CAN log - waiting 16 seconds")
-    #     time.sleep(16.0)
+    def ResetFlashCanLog(self):
+        print("Reseting CAN log - wait 8 seconds to complete")
+        self.node.sdo["CAN_LOG"]["CAN_LOG_RESET"].raw=0
+
+    def ResetAllFlash(self):
+        print("Reseting all flash log - wait 16 seconds to complete")
+        self.node.sdo["CAN_LOG"]["CAN_LOG_RESET"].raw=1
 
     def CanLogTransfer(self, outputFileName):
         try:
@@ -272,7 +295,26 @@ class Dpmu:
         except Exception as e:
             return f"Exception GetInputPower {e}" 
 
-        
+
+    def GetSerialNumber(self):
+        serialNumberStr=""
+        serialNumberChars=list(range(0,30))
+        try:
+            for i in range(0, 10):
+                partialSN=self.node.sdo["Restore default parameters"]["Restore_Serial_Number"].raw
+                print(f"data4={((partialSN & 0xFF000000)>>24)} data7={(partialSN & 0x000000ff)}")
+                serialNumberIndex = 3 * ( (partialSN & 0xFF000000) >> 24)
+                if( serialNumberIndex < len(serialNumberChars)):
+                    serialNumberChars[serialNumberIndex+2]   = (partialSN & 0x00FF0000)>>16
+                    serialNumberChars[serialNumberIndex+1] = (partialSN & 0x0000FF00)>>8
+                    serialNumberChars[serialNumberIndex] = (partialSN & 0x000000FF)
+            for i in serialNumberChars:
+                serialNumberStr = serialNumberStr + chr(i)
+        except Exception as ex:
+            print(f"Error retrieving serial number {ex}")
+        finally:
+            return serialNumberStr
+
     def GetOutputPower(self):
         try:
             return self.node.sdo["Read_Power"]["Power_From_DC_Input"].raw

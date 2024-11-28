@@ -1176,7 +1176,7 @@ AccessType=rw
 PDOMapping=0
 
 [1011sub5]
-ParameterName=Restore manufacturer defined default parameters
+ParameterName=Restore_Serial_Number
 ObjectType=7
 DataType=7
 AccessType=rw
