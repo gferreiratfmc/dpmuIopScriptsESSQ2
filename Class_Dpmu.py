@@ -123,11 +123,11 @@ class Dpmu:
             time.sleep(0.05)
             node.sdo["DC_Bus_Voltage"]["Max_Allowed_DC_Bus_Voltage"].raw=193
             time.sleep(0.05)
-            #node.sdo["DC_Bus_Voltage"]["Target_Voltage_At_DC_Bus"].raw=180
-            node.sdo["DC_Bus_Voltage"]["Target_Voltage_At_DC_Bus"].raw=1
+            node.sdo["DC_Bus_Voltage"]["Target_Voltage_At_DC_Bus"].raw=180
+            #node.sdo["DC_Bus_Voltage"]["Target_Voltage_At_DC_Bus"].raw=1
             time.sleep(0.05)
-            #node.sdo["DC_Bus_Voltage"]["Min_Allowed_DC_Bus_Voltage"].raw=167
-            node.sdo["DC_Bus_Voltage"]["Min_Allowed_DC_Bus_Voltage"].raw=0
+            node.sdo["DC_Bus_Voltage"]["Min_Allowed_DC_Bus_Voltage"].raw=167
+            #node.sdo["DC_Bus_Voltage"]["Min_Allowed_DC_Bus_Voltage"].raw=0
             time.sleep(0.05)
             node.sdo["DC_Bus_Voltage"]["VDC_Bus_Short_Circuit_Limit"].raw=30      
             time.sleep(0.05)
@@ -170,7 +170,7 @@ class Dpmu:
             while (True):
                 data = dpmuCanLogReader.read(7)
                 count=count+1
-                if( count == 700):
+                if( count == 1400):
                     progressCount=progressCount+1
                     print( f"{progressCount} ", end='')
                     sys.stdout.flush() 
@@ -302,7 +302,7 @@ class Dpmu:
         try:
             for i in range(0, 10):
                 partialSN=self.node.sdo["Restore default parameters"]["Restore_Serial_Number"].raw
-                print(f"data4={((partialSN & 0xFF000000)>>24)} data7={(partialSN & 0x000000ff)}")
+                #print(f"data4={((partialSN & 0xFF000000)>>24)} data7={(partialSN & 0x000000ff)}")
                 serialNumberIndex = 3 * ( (partialSN & 0xFF000000) >> 24)
                 if( serialNumberIndex < len(serialNumberChars)):
                     serialNumberChars[serialNumberIndex+2]   = (partialSN & 0x00FF0000)>>16
@@ -331,6 +331,25 @@ class Dpmu:
         except Exception as e:
             pass
         return switchList
+    
+    def SetSwitcheState(self, switch, state):
+        try:
+            state=str(state)
+            swState=1
+            if( state.upper() in ["OFF","0"]):
+                swState = 0
+            switchUppercase = switch.upper()
+            match switchUppercase:
+                case "QSB":
+                    self.node.sdo["Switch_State"]["SW_Qsb_State"].raw=swState
+                case "QLB":
+                    self.node.sdo["Switch_State"]["SW_Qlb_State"].raw=swState
+                case "QINB":    
+                    self.node.sdo["Switch_State"]["SW_Qinb_State"].raw=swState
+                case _:
+                    pass
+        except Exception as ex:
+            print(f"Error turning [{switch}] to [{state}]. [{ex}]")
         
 if __name__ == "__main__":
     print(">> REM >> This is a class file, execution could be performed, but no effect for FAT")

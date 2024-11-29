@@ -14,8 +14,14 @@ import time
 import canopen
 import Class_Dpmu
 import datetime as dt
+from cmath import sin
 
-possibleCommands = ["init", "initialize","idle","fault","charge","reg","regulate", "end", "rf", "resetFlash"]
+singleCommands = ["end", "resetFlash", "rf"]
+oneArgCommands = ["init", "initialize","idle","fault","charge","reg","regulate",
+                    "swInOff", "swInOn", "swOutOff", "swOutOn", "swShareOff", "swShareOn"]
+possibleCommands=singleCommands + oneArgCommands
+
+print(f"Possible commands:{possibleCommands}")
 
 def logVars():
     dateTimeNow = dt.datetime.now()
@@ -47,39 +53,40 @@ def ReadCmdLineSequence():
         argList = sys.argv[1:]
         idx=0
         while ( idx < len(argList) ):
-            command = argList[idx]
-            print(f"Validating arg[{idx}]:{command}")
-            if( command in possibleCommands ):
-                match command:
+            argCommand = argList[idx]
+            print(f"Validating arg[{idx}]:{argCommand}")
+            if( argCommand in possibleCommands ):
+                match argCommand:
                     case  "end":
-                        commandList.append([command, 0])
+                        commandList.append([argCommand, 0])
                     case "resetFlash" | "rf":
-                        commandList.append([command, 16])
-                    case "init" | "initialize"  | "fault" | "charge" | "reg" | "regulate" | "idle":
+                        commandList.append([argCommand, 16])
+                    case ("init" | "initialize"  | "fault" | "charge" | "reg" | "regulate" | "idle" |
+                         "swInOff" | "swInOn" | "swOutOff" | "swOutOn" | "swShareOff" | "swShareOn"):
                         if( (idx+1) < len(argList) ):
                             idx = idx + 1
                             try: 
-                                print(f"Convert {argList[idx]} to int")
+                                print(f"Convert arg[{idx}]:{argList[idx]} to int")
                                 timeCommand = int( argList[idx] )
-                                commandList.append( [command, timeCommand] )
+                                commandList.append( [argCommand, timeCommand] )
                             except Exception as e:
                                 print(f"Erro converting {argList[idx]} to integer. {e}")
-                                commandList.append( [command, 0] )
+                                commandList.append( [argCommand, 0] )
                                 continue
                     case _:
-                        print(f"Argument[{idx}] = {command} invalid")
+                        print(f"Argument[{idx}] = {argCommand} invalid")
             idx = idx + 1
         commandList.append(["end", 0])
         return commandList
 
-def abend():
-    print(f"Command {command} not valid. Aborting.\r\nValid commands are")
+def abend(argCommand):
+    print(f"Command {argCommand} not valid. Aborting.\r\nValid commands are")
     print("init [time] | initialize [time] | fault [time] | end | charge [time] | reg [time] | regulate [time] | idle [time] | resetFlash")
     print("time in seconds eg: 2.1 secs ")
     sys.exit(0)
 
-def selectSMStateFromCommand(command):
-    commandStr=str(command)
+def selectSMStateFromCommand(argCommand):
+    commandStr=str(argCommand)
     match commandStr.lower():
         case "init" | "initialize":
             return "Initialize"
@@ -95,10 +102,38 @@ def selectSMStateFromCommand(command):
             return "EndSM"
         case "resetflash" | "rf":
             return "ResetFlash"
+        case "swinon":
+            return "swInOn"
+        case "swinoff":
+            return "swInOff"
+        case "swouton":
+            return "swOutOn"
+        case "swoutoff":
+            return "swOutOff"        
+        case "swshareon":
+            return "swShareOn"
+        case "swshareoff":
+            return "swShareOff"        
         case _:
             return "EndSM"
 
-
+def setSwitchState(prState):
+    match prState:
+        case "swInOn":
+            dpmu.SetSwitcheState("QINB", "ON")
+        case "swInOff":
+            dpmu.SetSwitcheState("QINB", "OFF")
+        case "swOutOn":
+            dpmu.SetSwitcheState("QLB", "ON")
+        case "swOutOff":
+            dpmu.SetSwitcheState("QLB", "OFF")
+        case "swShareOn":
+            dpmu.SetSwitcheState("QSB", "ON")
+        case "swShareOff":
+            dpmu.SetSwitcheState("QSB", "OFF")            
+        case _:
+            pass
+        
 if __name__ == "__main__":
     script_path = os.path.abspath(__file__)    
     script_directory = os.path.dirname(script_path)        
@@ -151,7 +186,7 @@ if __name__ == "__main__":
     listOfCommands = ReadCmdLineSequence()
     print(f"listOfCommands:\r\n{listOfCommands}")
     commandIndex = 0
-
+    delayCountLogVars = 0
     while( endProcess == False ):
         
         dpmu_state = dpmu.getState()
@@ -159,7 +194,7 @@ if __name__ == "__main__":
         match prState:
             case "InitSM":
                 dpmu.printVariables()
-                nxState = "ForceFault"
+                nxState = "ProcessCommandLine"
                 
             case "ForceFault":
                 dpmu.setState("Fault")
@@ -170,21 +205,22 @@ if __name__ == "__main__":
 
             case "ProcessCommandLine":
                 if( commandIndex < len(listOfCommands) ): 
-                    command = listOfCommands[commandIndex][0]
+                    argCommand = listOfCommands[commandIndex][0]
                     commandTime = listOfCommands[commandIndex][1]
                     commandIndex = commandIndex + 1
-                    nxState = selectSMStateFromCommand( command )
+                    nxState = selectSMStateFromCommand( argCommand )
                 else:
                     nxState = "EndSM"
                 print(f"========== ProcessCommandLine ===========")
                 print(f"\t\tcommandindex:[{commandIndex}] len(listOfCommands){len(listOfCommands)}")
-                print(f"\t\tcommand:[{command}] commandTime:{commandTime}")
+                print(f"\t\tcommand:[{argCommand}] commandTime:{commandTime}")
                 print(f"\t\tnxState:[{nxState}]")
                 
             case "Initialize":
                 dpmu.InitialConfig()
                 countTime = 5
                 nxStateAfterWaitDPMUState="RequestInitializeDPMU"
+                expectedDPMUStateList=["Idle", "PreInitialized"]
                 nxState="WaitDPMUState"
 
             case "RequestInitializeDPMU":    
@@ -198,7 +234,7 @@ if __name__ == "__main__":
                 dpmu.setState("TrickleChargeInit")
                 countTime = commandTime * 10
                 if( commandTime > 0):
-                    expectedDPMUStateList=["Charge", "Idle", "PreInitialized"]
+                    expectedDPMUStateList=["TrickleCharge", "Charge", "Idle", "PreInitialized"]
                 else:
                     expectedDPMUStateList=["Idle", "PreInitialized"]
                 nxStateAfterWaitDPMUState="ProcessCommandLine"
@@ -237,12 +273,32 @@ if __name__ == "__main__":
                 nxStateAfterWaitDPMUState="ProcessCommandLine"
                 nxState="WaitDPMUState"
 
+            case "swInOn" | "swOutOn" | "swOutOff" | "swShareOn" | "swShareOff":                
+                setSwitchState(prState)
+                countTime = commandTime * 10
+                expectedDPMUStateList=["Idle", "PreInitialized"]
+                nxStateAfterWaitDPMUState="ProcessCommandLine"
+                nxState="WaitDPMUState"
+
+            case "swInOff":                
+                setSwitchState(prState)
+                countTime = commandTime * 10
+                expectedDPMUStateList=["Idle", "PreInitialized", "RegulateVoltage"]
+                nxStateAfterWaitDPMUState="ProcessCommandLine"
+                nxState="WaitDPMUState"
+                
             case "WaitDPMUState":
+                delayCountLogVars = delayCountLogVars + 1
+                if( delayCountLogVars == 10 ):
+                    logVars()  
+                    delayCountLogVars = 0
+                    print(f"WaitDPMUState countTime={countTime}")
                 if( countTime > 0): 
                     countTime = countTime - 1
                 else:
                     if( dpmu_state in expectedDPMUStateList ):                   
                         nxState=nxStateAfterWaitDPMUState
+            
 
             case "EndSM":
                 if( countTime > 0):
