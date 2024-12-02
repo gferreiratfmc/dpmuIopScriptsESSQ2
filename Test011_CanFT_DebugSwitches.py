@@ -30,8 +30,10 @@ def logVars():
     dpmuBusVoltage = dpmu.GetOutputVoltage()
     supercapVoltage = dpmu.GetSupercapBankVoltage()
     inputPower = dpmu.GetInputPower() 
-    #inputCurrent = float(inputPower) / dpmuBusVoltage
-    inputCurrent = float(inputPower)
+    if(dpmuBusVoltage>0 ):
+        inputCurrent = float(inputPower) / dpmuBusVoltage
+    else:
+        inputCurrent = 0.0
     dpmuState = dpmu.getState()
     switches=dpmu.GetSwitchesState()
     print(f"******** DPMU VARS {ts} ********")
@@ -73,6 +75,9 @@ def ReadCmdLineSequence():
                                 print(f"Erro converting {argList[idx]} to integer. {e}")
                                 commandList.append( [argCommand, 0] )
                                 continue
+                        else:
+                            timeCommand = 0
+                            commandList.append( [argCommand, timeCommand] )
                     case _:
                         print(f"Argument[{idx}] = {argCommand} invalid")
             idx = idx + 1
@@ -233,20 +238,14 @@ if __name__ == "__main__":
             case "Charge":
                 dpmu.setState("TrickleChargeInit")
                 countTime = commandTime * 10
-                if( commandTime > 0):
-                    expectedDPMUStateList=["TrickleCharge", "Charge", "Idle", "PreInitialized"]
-                else:
-                    expectedDPMUStateList=["Idle", "PreInitialized"]
+                expectedDPMUStateList=["TrickleCharge", "Charge", "Idle", "PreInitialized"]
                 nxStateAfterWaitDPMUState="ProcessCommandLine"
                 nxState="WaitDPMUState"
 
-            case "Regulate":
+            case "RegulateInit":
                 dpmu.setState("RegulateInit")
                 countTime = commandTime * 10
-                if( commandTime > 0):
-                    expectedDPMUStateList=["Regulate", "RegulateVoltage"]
-                else:
-                    expectedDPMUStateList=["Idle", "PreInitialized"]
+                expectedDPMUStateList=["Idle", "PreInitialized", "Regulate", "RegulateVoltage"]
                 nxStateAfterWaitDPMUState="ProcessCommandLine"
                 nxState="WaitDPMUState"
 

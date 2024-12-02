@@ -261,7 +261,13 @@ class Dpmu:
             return self.node.sdo["Identity Object"]["Product Code"].raw
         except Exception as e:
             return f"Exception getIdentity {e}"          
-        
+    
+    def GetSupercapBankCurrent(self):
+        value=self.node.sdo["ESS_Current"].raw
+        if (value & (1 << (7))) != 0: # if sign bit is set e.g., 8bit: 128-255
+            value = value - (1 << 8)        # compute negative value
+            value = float(value) / 16.0        
+    
     def GetSupercapBankVoltage(self):
         try:
             maxVoltageEnergyBank = self.node.sdo["Energy_Bank_Summary"]["Max_Voltage_Applied_To_Energy_Bank"].raw
@@ -350,6 +356,7 @@ class Dpmu:
                     pass
         except Exception as ex:
             print(f"Error turning [{switch}] to [{state}]. [{ex}]")
+
         
 if __name__ == "__main__":
     print(">> REM >> This is a class file, execution could be performed, but no effect for FAT")
