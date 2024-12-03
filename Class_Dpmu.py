@@ -123,11 +123,11 @@ class Dpmu:
             time.sleep(0.05)
             node.sdo["DC_Bus_Voltage"]["Max_Allowed_DC_Bus_Voltage"].raw=193
             time.sleep(0.05)
-            node.sdo["DC_Bus_Voltage"]["Target_Voltage_At_DC_Bus"].raw=180
-            #node.sdo["DC_Bus_Voltage"]["Target_Voltage_At_DC_Bus"].raw=1
+            # node.sdo["DC_Bus_Voltage"]["Target_Voltage_At_DC_Bus"].raw=180
+            node.sdo["DC_Bus_Voltage"]["Target_Voltage_At_DC_Bus"].raw=1
             time.sleep(0.05)
-            node.sdo["DC_Bus_Voltage"]["Min_Allowed_DC_Bus_Voltage"].raw=167
-            #node.sdo["DC_Bus_Voltage"]["Min_Allowed_DC_Bus_Voltage"].raw=0
+            # node.sdo["DC_Bus_Voltage"]["Min_Allowed_DC_Bus_Voltage"].raw=167
+            node.sdo["DC_Bus_Voltage"]["Min_Allowed_DC_Bus_Voltage"].raw=0
             time.sleep(0.05)
             node.sdo["DC_Bus_Voltage"]["VDC_Bus_Short_Circuit_Limit"].raw=30      
             time.sleep(0.05)
@@ -266,7 +266,8 @@ class Dpmu:
         value=self.node.sdo["ESS_Current"].raw
         if (value & (1 << (7))) != 0: # if sign bit is set e.g., 8bit: 128-255
             value = value - (1 << 8)        # compute negative value
-            value = float(value) / 16.0        
+            value = float(value) / 16.0
+        return value        
     
     def GetSupercapBankVoltage(self):
         try:
